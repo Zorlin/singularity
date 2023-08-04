@@ -2,13 +2,13 @@ package datasetworker
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/data-preservation-programs/singularity/database"
 	"github.com/data-preservation-programs/singularity/handler/datasource"
 	"github.com/data-preservation-programs/singularity/model"
 	"github.com/pkg/errors"
 	"github.com/rjNemo/underscore"
-	"gorm.io/gorm"
 )
 
 // scan scans the data source and inserts the chunking strategy back to database
@@ -91,26 +91,10 @@ func (w *DatasetWorkerThread) chunkOnce(
 	// If everything fit, create a chunk. Usually this is the case for the last chunk
 	if remaining.carSize <= dataset.MaxSize {
 		w.logger.Debugw("creating chunk", "size", remaining.carSize)
-		err := database.DoRetry(func() error {
-			return w.db.Transaction(
-				func(db *gorm.DB) error {
-					chunk := model.Chunk{
-						SourceID:     source.ID,
-						PackingState: model.Ready,
-					}
-					err := w.db.Create(&chunk).Error
-					if err != nil {
-						return errors.Wrap(err, "failed to create chunk")
-					}
-					err = w.db.Model(&model.ItemPart{}).
-						Where("id IN ?", remaining.itemIDs()).Update("chunk_id", chunk.ID).Error
-					if err != nil {
-						return errors.Wrap(err, "failed to update items")
-					}
-					return nil
-				},
-			)
+		err := datasource.ChunkHandler(w.db, strconv.FormatUint(uint64(source.ID), 10), datasource.ChunkRequest{
+			ItemIDs: remaining.itemIDs(),
 		})
+
 		if err != nil {
 			return errors.Wrap(err, "failed to create chunk")
 		}
@@ -137,27 +121,12 @@ func (w *DatasetWorkerThread) chunkOnce(
 
 	// create a chunk for [0:si)
 	w.logger.Debugw("creating chunk", "size", s)
-	err := database.DoRetry(func() error {
-		return w.db.Transaction(
-			func(db *gorm.DB) error {
-				chunk := model.Chunk{
-					SourceID:     source.ID,
-					PackingState: model.Ready,
-				}
-				err := w.db.Create(&chunk).Error
-				if err != nil {
-					return errors.Wrap(err, "failed to create chunk")
-				}
-				itemPartIDs := underscore.Map(remaining.itemParts[:si], func(item model.ItemPart) uint64 {
-					return item.ID
-				})
-				err = w.db.Model(&model.ItemPart{}).Where("id IN ?", itemPartIDs).Update("chunk_id", chunk.ID).Error
-				if err != nil {
-					return errors.Wrap(err, "failed to update items")
-				}
-				return nil
-			},
-		)
+
+	itemPartIDs := underscore.Map(remaining.itemParts[:si], func(item model.ItemPart) uint64 {
+		return item.ID
+	})
+	err := datasource.ChunkHandler(w.db, strconv.FormatUint(uint64(source.ID), 10), datasource.ChunkRequest{
+		ItemIDs: itemPartIDs,
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to create chunk")
