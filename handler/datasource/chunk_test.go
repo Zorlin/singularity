@@ -20,8 +20,7 @@ func TestChunk(t *testing.T) {
 	ctx := context.Background()
 
 	// Create test file to add
-	testSourcePath := path.Join(os.TempDir(), "singularity-test-source")
-	require.NoError(t, os.RemoveAll(testSourcePath))
+	testSourcePath := path.Join(t.TempDir(), "singularity-test-source")
 	require.NoError(t, os.Mkdir(testSourcePath, 0744))
 	require.NoError(t, os.WriteFile(path.Join(testSourcePath, "a"), []byte("test file a"), fs.FileMode(os.O_WRONLY)))
 	require.NoError(t, os.WriteFile(path.Join(testSourcePath, "b"), []byte("test file b"), fs.FileMode(os.O_WRONLY)))
