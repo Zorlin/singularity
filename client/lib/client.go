@@ -50,6 +50,10 @@ func (c *Client) CreateLocalSource(ctx context.Context, datasetName string, para
 	return dshandler.CreateDatasourceHandler(c.db.WithContext(ctx), ctx, c.datasourceHandlerResolver, "local", datasetName, paramsMap)
 }
 
+func (c *Client) GetSourceChunks(ctx context.Context, sourceID uint32) ([]model.Chunk, error) {
+	return inspect.GetSourceChunksHandler(c.db.WithContext(ctx), strconv.FormatUint(uint64(sourceID), 10))
+}
+
 func (c *Client) GetSourceItems(ctx context.Context, sourceID uint32) ([]model.Item, error) {
 	return inspect.GetSourceItemsHandler(c.db.WithContext(ctx), strconv.FormatUint(uint64(sourceID), 10))
 }
@@ -64,6 +68,10 @@ func (c *Client) GetItemDeals(ctx context.Context, id uint64) ([]model.Deal, err
 
 func (c *Client) PushItem(ctx context.Context, sourceID uint32, itemInfo dshandler.ItemInfo) (*model.Item, error) {
 	return dshandler.PushItemHandler(c.db.WithContext(ctx), ctx, c.datasourceHandlerResolver, sourceID, itemInfo)
+}
+
+func (c *Client) Chunk(ctx context.Context, sourceID uint32, request dshandler.ChunkRequest) (*model.Chunk, error) {
+	return dshandler.ChunkHandler(c.db.WithContext(ctx), strconv.FormatUint(uint64(sourceID), 10), request)
 }
 
 var _ client.Client = (*Client)(nil)
